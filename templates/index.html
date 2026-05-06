@@ -550,19 +550,20 @@ function renderGraph(data) {
 
     const sim = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+            if (d.inherited) return 35;
             const s = typeof d.source === "object" ? d.source.type : "node";
             const t = typeof d.target === "object" ? d.target.type : "node";
-            if (s === "seed" || t === "seed") return 160;
-            if (s === "hub"  || t === "hub")  return 100;
-            return 65;
+            if (s === "seed" || t === "seed") return 100;
+            if (s === "hub"  || t === "hub")  return 65;
+            return 40;
         }))
-        .force("charge", d3.forceManyBody().strength(d => {
-            if (d.type === "seed") return -900;
-            if (d.type === "hub")  return -350;
-            return -100;
-        }))
-        .force("center", d3.forceCenter(W / 2, H / 2))
-        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 5));
+        .force("charge", d3.forceManyBody()
+            .strength(d => d.type === "seed" ? -600 : d.type === "hub" ? -200 : -60)
+            .distanceMax(220))
+        .force("center", d3.forceCenter(W / 2, H / 2).strength(0.4))
+        .force("x", d3.forceX(W / 2).strength(d => d.type === "node" ? 0.06 : 0.01))
+        .force("y", d3.forceY(H / 2).strength(d => d.type === "node" ? 0.06 : 0.01))
+        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 3));
 
     const link = g.append("g").selectAll("line")
         .data(links).join("line")
