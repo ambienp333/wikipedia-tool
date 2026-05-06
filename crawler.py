@@ -301,6 +301,17 @@ def build_graph(seed_topics, seed_coverage, all_edges, cat_cache=None, exclusion
     )
     kept = seed_set | {n for n, _ in non_seeds[:top_n]}
 
+    # Guarantee each seed has at least its top direct neighbours visible.
+    # Without this, seeds whose links all scored below top_n appear as isolated nodes.
+    for seed in seed_set:
+        direct = sorted(
+            [tgt for (src, tgt) in all_edges if src == seed and tgt not in excluded and tgt not in seed_set],
+            key=lambda n: scores.get(n, 0),
+            reverse=True,
+        )
+        for neighbour in direct[:8]:
+            kept.add(neighbour)
+
     # Edge inheritance: when a node is excluded, bridge its kept neighbours directly
     inherited = set()
     if excluded:

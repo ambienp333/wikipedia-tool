@@ -550,20 +550,26 @@ function renderGraph(data) {
 
     const sim = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
-            if (d.inherited) return 35;
+            if (d.inherited) return 45;
             const s = typeof d.source === "object" ? d.source.type : "node";
             const t = typeof d.target === "object" ? d.target.type : "node";
-            if (s === "seed" || t === "seed") return 100;
-            if (s === "hub"  || t === "hub")  return 65;
-            return 40;
+            if (s === "seed" || t === "seed") return 130;
+            if (s === "hub"  || t === "hub")  return 85;
+            return 55;
         }))
         .force("charge", d3.forceManyBody()
-            .strength(d => d.type === "seed" ? -600 : d.type === "hub" ? -200 : -60)
-            .distanceMax(220))
-        .force("center", d3.forceCenter(W / 2, H / 2).strength(0.4))
-        .force("x", d3.forceX(W / 2).strength(d => d.type === "node" ? 0.06 : 0.01))
-        .force("y", d3.forceY(H / 2).strength(d => d.type === "node" ? 0.06 : 0.01))
-        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 3));
+            .strength(d => d.type === "seed" ? -700 : d.type === "hub" ? -250 : -80)
+            .distanceMax(260))
+        .force("center", d3.forceCenter(W / 2, H / 2).strength(0.3))
+        .force("x", d3.forceX(W / 2).strength(d => d.type === "node" ? 0.03 : 0.008))
+        .force("y", d3.forceY(H / 2).strength(d => d.type === "node" ? 0.03 : 0.008))
+        .force("collision", d3.forceCollide().radius(d => {
+            // Pad collision by approximate label half-width to stop text overlap
+            const r = nodeRadius(d);
+            if (d.type === "seed") return r + 38;
+            if (d.type === "hub")  return r + 28;
+            return r + 10;
+        }));
 
     const link = g.append("g").selectAll("line")
         .data(links).join("line")
