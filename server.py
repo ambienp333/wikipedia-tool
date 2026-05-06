@@ -34,10 +34,10 @@ def run_crawl():
         return jsonify({"error": "A crawl is already in progress."}), 409
 
     data = request.json or {}
-    topics = [t.strip() for t in data.get("topics", []) if t.strip()]
-    depth = max(1, min(int(data.get("depth", 3)), 4))
+    topics        = [t.strip() for t in data.get("topics", []) if t.strip()]
+    depth         = max(1, min(int(data.get("depth", 3)), 4))
     links_per_page = max(5, min(int(data.get("links_per_page", 10)), 20))
-    min_frequency = max(1, int(data.get("min_frequency", 2)))
+    top_n         = max(20, min(int(data.get("top_n", 120)), 300))
 
     if not topics:
         return jsonify({"error": "No topics provided."}), 400
@@ -46,8 +46,8 @@ def run_crawl():
         _crawl_running = True
 
     try:
-        freq, edges = crawl(topics, depth=depth, links_per_page=links_per_page)
-        graph_data = build_graph(topics, freq, edges, min_frequency=min_frequency)
+        coverage, edges = crawl(topics, depth=depth, links_per_page=links_per_page)
+        graph_data = build_graph(topics, coverage, edges, top_n=top_n)
         with open(GRAPH_FILE, "w") as f:
             json.dump(graph_data, f)
         return jsonify(graph_data)

@@ -9,8 +9,8 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background: #1a1a2e;
-            color: #e0e0e0;
+            background: #111111;
+            color: #c0c0c0;
             font-family: 'Segoe UI', system-ui, sans-serif;
             height: 100vh;
             overflow: hidden;
@@ -21,20 +21,19 @@
             width: 260px;
             flex-shrink: 0;
             height: 100vh;
-            background: #16213e;
+            background: #181818;
             padding: 20px 16px;
-            border-right: 1px solid #0f3460;
+            border-right: 1px solid #282828;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 0;
         }
 
         h1 {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            color: #4A90E2;
-            letter-spacing: 0.8px;
+            color: #e0e0e0;
+            letter-spacing: 1px;
             text-transform: uppercase;
             margin-bottom: 20px;
         }
@@ -44,7 +43,7 @@
         label {
             display: block;
             font-size: 10px;
-            color: #6a7888;
+            color: #555555;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             margin-bottom: 5px;
@@ -52,44 +51,41 @@
 
         textarea, input[type="number"], select {
             width: 100%;
-            background: #0d1b2e;
-            border: 1px solid #1e3a5f;
-            color: #d0d8e8;
+            background: #141414;
+            border: 1px solid #2e2e2e;
+            color: #c0c0c0;
             padding: 7px 9px;
-            border-radius: 4px;
+            border-radius: 3px;
             font-size: 12px;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s;
         }
 
-        textarea:focus, input:focus, select:focus {
-            border-color: #4A90E2;
-        }
-
+        textarea:focus, input:focus, select:focus { border-color: #606060; }
         textarea { height: 110px; resize: vertical; line-height: 1.5; }
 
         button {
             width: 100%;
             margin-top: 4px;
             padding: 9px;
-            background: #4A90E2;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
+            background: #333333;
+            color: #e0e0e0;
+            border: 1px solid #444444;
+            border-radius: 3px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             transition: background 0.15s;
         }
 
-        button:hover:not(:disabled) { background: #3a7bd5; }
-        button:disabled { background: #1e3a5f; color: #4a6a8a; cursor: not-allowed; }
+        button:hover:not(:disabled) { background: #444444; }
+        button:disabled { background: #1e1e1e; color: #444444; border-color: #2a2a2a; cursor: not-allowed; }
 
         #status {
             margin-top: 10px;
             font-size: 11px;
-            color: #6a8aaa;
+            color: #555555;
             min-height: 16px;
             text-align: center;
         }
@@ -97,24 +93,24 @@
         #legend {
             margin-top: auto;
             padding-top: 16px;
-            border-top: 1px solid #0f3460;
+            border-top: 1px solid #242424;
         }
 
         .legend-label {
             font-size: 10px;
-            color: #6a7888;
+            color: #484848;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 7px;
-            font-size: 12px;
-            color: #9aaabb;
+            gap: 9px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: #707070;
         }
 
         .legend-dot {
@@ -122,6 +118,20 @@
             height: 10px;
             border-radius: 50%;
             flex-shrink: 0;
+        }
+
+        .legend-line {
+            width: 22px;
+            height: 2px;
+            flex-shrink: 0;
+            border-radius: 1px;
+        }
+
+        .legend-score {
+            margin-top: 12px;
+            font-size: 10px;
+            color: #404040;
+            line-height: 1.7;
         }
 
         #graph {
@@ -132,18 +142,6 @@
 
         svg { width: 100%; height: 100%; }
 
-        .link {
-            stroke: #1e3a5a;
-            stroke-opacity: 0.6;
-            stroke-width: 1;
-        }
-
-        .link-seed {
-            stroke: #2a5a8a;
-            stroke-opacity: 0.7;
-            stroke-width: 1.5;
-        }
-
         .node text {
             pointer-events: none;
             user-select: none;
@@ -153,7 +151,7 @@
             display: none;
             position: absolute;
             inset: 0;
-            background: rgba(10, 15, 30, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             align-items: center;
             justify-content: center;
             flex-direction: column;
@@ -163,18 +161,18 @@
         #overlay.visible { display: flex; }
 
         .spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid #0f3460;
-            border-top-color: #4A90E2;
+            width: 32px;
+            height: 32px;
+            border: 2px solid #2a2a2a;
+            border-top-color: #888888;
             border-radius: 50%;
             animation: spin 0.9s linear infinite;
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .overlay-text { font-size: 13px; color: #9aaabb; }
-        .overlay-sub  { font-size: 11px; color: #5a7a9a; }
+        .overlay-text { font-size: 13px; color: #888888; }
+        .overlay-sub  { font-size: 11px; color: #444444; }
 
         #empty {
             display: none;
@@ -182,7 +180,7 @@
             inset: 0;
             align-items: center;
             justify-content: center;
-            color: #3a5a7a;
+            color: #333333;
             font-size: 13px;
             flex-direction: column;
             gap: 8px;
@@ -218,26 +216,42 @@ Molecular biology</textarea>
     </div>
 
     <div class="field">
-        <label>Min Frequency (display filter)</label>
-        <input type="number" id="minFreq" value="2" min="1" max="20">
+        <label>Max Nodes to Show</label>
+        <input type="number" id="topN" value="120" min="20" max="300">
     </div>
 
     <button id="crawlBtn" onclick="runCrawl()">Build Graph</button>
     <div id="status"></div>
 
     <div id="legend">
-        <div class="legend-label">Node types</div>
+        <div class="legend-label">Nodes</div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#4A90E2"></div>
+            <div class="legend-dot" style="background:#f0f0f0;"></div>
             Seed topic
         </div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#E8834A"></div>
-            Hub (high frequency)
+            <div class="legend-dot" style="background:#888888;"></div>
+            Hub (top 20% score)
         </div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#5a7a8a"></div>
+            <div class="legend-dot" style="background:#383838;"></div>
             Node
+        </div>
+
+        <div class="legend-label" style="margin-top:14px;">Edges</div>
+        <div class="legend-item">
+            <div class="legend-line" style="background:#666666;"></div>
+            Bidirectional
+        </div>
+        <div class="legend-item">
+            <div class="legend-line" style="background:#2a2a2a;"></div>
+            Unidirectional
+        </div>
+
+        <div class="legend-score">
+            Score = 50% cross-seed coverage<br>
+            + 30% topic specificity<br>
+            + 20% bidirectional ratio
         </div>
     </div>
 </div>
@@ -246,11 +260,11 @@ Molecular biology</textarea>
     <div id="overlay">
         <div class="spinner"></div>
         <div class="overlay-text">Crawling Wikipedia…</div>
-        <div class="overlay-sub">This may take 30–90 seconds</div>
+        <div class="overlay-sub">This may take 1–2 minutes</div>
     </div>
     <div id="empty" class="visible">
         <div>No graph loaded</div>
-        <div style="font-size:11px;color:#2a4a6a">Enter seed topics and click Build Graph</div>
+        <div style="font-size:11px;color:#2a2a2a">Enter seed topics and click Build Graph</div>
     </div>
 </div>
 
@@ -272,7 +286,7 @@ async function runCrawl() {
 
     const depth        = parseInt(document.getElementById("depth").value);
     const linksPerPage = parseInt(document.getElementById("links").value);
-    const minFreq      = parseInt(document.getElementById("minFreq").value);
+    const topN         = parseInt(document.getElementById("topN").value);
 
     setLoading(true);
     setStatus("Crawling…");
@@ -282,7 +296,7 @@ async function runCrawl() {
         const resp = await fetch("/crawl", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topics, depth, links_per_page: linksPerPage, min_frequency: minFreq })
+            body: JSON.stringify({ topics, depth, links_per_page: linksPerPage, top_n: topN })
         });
         const data = await resp.json();
 
@@ -302,14 +316,21 @@ async function runCrawl() {
 
 function nodeRadius(d) {
     if (d.type === "seed") return 18;
-    if (d.type === "hub")  return 8 + Math.min(d.frequency, 12);
-    return 4 + Math.min(d.frequency * 1.2, 7);
+    const s = Math.min(d.score, 1.0);
+    if (d.type === "hub")  return 8  + s * 10;
+    return 3 + s * 7;
 }
 
 function nodeColor(d) {
-    if (d.type === "seed") return "#4A90E2";
-    if (d.type === "hub")  return "#E8834A";
-    return "#3d6070";
+    if (d.type === "seed") return "#f0f0f0";
+    if (d.type === "hub")  return "#888888";
+    return "#383838";
+}
+
+function labelColor(d) {
+    if (d.type === "seed") return "#ffffff";
+    if (d.type === "hub")  return "#aaaaaa";
+    return "#555555";
 }
 
 function renderGraph(data) {
@@ -324,7 +345,7 @@ function renderGraph(data) {
     const g   = svg.append("g");
 
     svg.call(
-        d3.zoom().scaleExtent([0.1, 6])
+        d3.zoom().scaleExtent([0.08, 8])
           .on("zoom", e => g.attr("transform", e.transform))
     );
 
@@ -336,41 +357,41 @@ function renderGraph(data) {
             const s = typeof d.source === "object" ? d.source.type : "node";
             const t = typeof d.target === "object" ? d.target.type : "node";
             if (s === "seed" || t === "seed") return 160;
-            if (s === "hub"  || t === "hub")  return 110;
-            return 70;
+            if (s === "hub"  || t === "hub")  return 100;
+            return 65;
         }))
         .force("charge", d3.forceManyBody().strength(d => {
             if (d.type === "seed") return -900;
-            if (d.type === "hub")  return -400;
-            return -120;
+            if (d.type === "hub")  return -350;
+            return -100;
         }))
         .force("center", d3.forceCenter(W / 2, H / 2))
-        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 6));
+        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 5));
 
     const link = g.append("g").selectAll("line")
         .data(links).join("line")
-        .attr("class", d => {
-            const s = typeof d.source === "object" ? d.source.type : "node";
-            return s === "seed" ? "link link-seed" : "link";
-        });
+        .attr("stroke",         d => d.bidirectional ? "#595959" : "#252525")
+        .attr("stroke-width",   d => d.bidirectional ? 1.5 : 0.8)
+        .attr("stroke-opacity", d => d.bidirectional ? 0.9 : 0.6);
 
     const node = g.append("g").selectAll("g")
         .data(nodes).join("g")
         .call(drag(sim));
 
     node.append("circle")
-        .attr("r", nodeRadius)
-        .attr("fill", nodeColor)
-        .attr("fill-opacity", 0.88)
-        .attr("stroke", d => d3.color(nodeColor(d)).brighter(0.6))
-        .attr("stroke-width", 1.2);
+        .attr("r",            nodeRadius)
+        .attr("fill",         nodeColor)
+        .attr("fill-opacity", d => d.type === "node" ? 0.7 : 0.9)
+        .attr("stroke",       d => d.type === "seed" ? "#ffffff" : "none")
+        .attr("stroke-width", 1);
 
-    node.filter(d => d.type === "seed" || d.type === "hub" || d.frequency >= 3)
+    // Labels: seeds and hubs always; nodes only if score is reasonably high
+    node.filter(d => d.type === "seed" || d.type === "hub" || d.score >= 0.15)
         .append("text")
-        .attr("dy", d => nodeRadius(d) + 11)
-        .attr("text-anchor", "middle")
-        .attr("font-size", d => d.type === "seed" ? 12 : d.type === "hub" ? 10 : 9)
-        .attr("fill", d => d.type === "seed" ? "#a8c8f8" : d.type === "hub" ? "#f0c090" : "#7a9aaa")
+        .attr("dy",           d => nodeRadius(d) + 11)
+        .attr("text-anchor",  "middle")
+        .attr("font-size",    d => d.type === "seed" ? 12 : d.type === "hub" ? 10 : 9)
+        .attr("fill",         labelColor)
         .text(d => d.id);
 
     sim.on("tick", () => {
@@ -383,23 +404,22 @@ function renderGraph(data) {
 
 function drag(sim) {
     return d3.drag()
-        .on("start", (e) => {
+        .on("start", e => {
             if (!e.active) sim.alphaTarget(0.3).restart();
             e.subject.fx = e.subject.x;
             e.subject.fy = e.subject.y;
         })
-        .on("drag", (e) => {
+        .on("drag", e => {
             e.subject.fx = e.x;
             e.subject.fy = e.y;
         })
-        .on("end", (e) => {
+        .on("end", e => {
             if (!e.active) sim.alphaTarget(0);
             e.subject.fx = null;
             e.subject.fy = null;
         });
 }
 
-// Load cached graph on page load
 fetch("/graph")
     .then(r => r.json())
     .then(data => {
