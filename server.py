@@ -3,7 +3,7 @@ import os
 import threading
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
-from crawler import crawl, build_graph
+from crawler import crawl, build_graph, normalize_topic
 
 app = Flask(__name__)
 CORS(app)
@@ -34,7 +34,7 @@ def run_crawl():
         return jsonify({"error": "A crawl is already in progress."}), 409
 
     data = request.json or {}
-    topics        = [t.strip() for t in data.get("topics", []) if t.strip()]
+    topics        = [normalize_topic(t) for t in data.get("topics", []) if t.strip()]
     depth         = max(1, min(int(data.get("depth", 3)), 4))
     links_per_page = max(5, min(int(data.get("links_per_page", 10)), 20))
     top_n         = max(20, min(int(data.get("top_n", 120)), 300))

@@ -49,7 +49,7 @@
             margin-bottom: 5px;
         }
 
-        textarea, input[type="number"], select {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             background: #141414;
             border: 1px solid #2e2e2e;
@@ -62,8 +62,53 @@
             transition: border-color 0.15s;
         }
 
-        textarea:focus, input:focus, select:focus { border-color: #606060; }
-        textarea { height: 110px; resize: vertical; line-height: 1.5; }
+        input:focus, select:focus { border-color: #606060; }
+
+        .topic-input-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .topic-input-row input {
+            flex: 1;
+        }
+
+        .topic-input-row button {
+            width: auto;
+            padding: 7px 10px;
+            font-size: 12px;
+            margin-top: 0;
+            flex-shrink: 0;
+        }
+
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            min-height: 10px;
+            margin-bottom: 6px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #222222;
+            border: 1px solid #383838;
+            border-radius: 3px;
+            padding: 3px 8px;
+            font-size: 11px;
+            color: #c0c0c0;
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            color: #505050;
+            font-size: 13px;
+            line-height: 1;
+        }
+
+        .tag-remove:hover { color: #aaaaaa; }
 
         button {
             width: 100%;
@@ -195,10 +240,12 @@
     <h1>Wikipedia Graph</h1>
 
     <div class="field">
-        <label>Seed Topics (one per line)</label>
-        <textarea id="topics" placeholder="Genetics&#10;Epigenetics&#10;Molecular biology">Genetics
-Epigenetics
-Molecular biology</textarea>
+        <label>Seed Topics</label>
+        <div class="tags-container" id="topicTags"></div>
+        <div class="topic-input-row">
+            <input type="text" id="topicInput" placeholder="Wikipedia URL or title…">
+            <button type="button" onclick="addTopic()">Add</button>
+        </div>
     </div>
 
     <div class="field">
@@ -226,15 +273,15 @@ Molecular biology</textarea>
     <div id="legend">
         <div class="legend-label">Nodes</div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#f0f0f0;"></div>
+            <div class="legend-dot" style="background:#b0b0b0;"></div>
             Seed topic
         </div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#888888;"></div>
+            <div class="legend-dot" style="background:#767676;"></div>
             Hub (top 20% score)
         </div>
         <div class="legend-item">
-            <div class="legend-dot" style="background:#383838;"></div>
+            <div class="legend-dot" style="background:#585858;"></div>
             Node
         </div>
 
@@ -269,6 +316,51 @@ Molecular biology</textarea>
 </div>
 
 <script>
+let seedTopics = ["Genetics", "Epigenetics", "Molecular biology"];
+
+function parseWikipediaTitle(raw) {
+    raw = raw.trim();
+    if (raw.includes("wikipedia.org/wiki/")) {
+        const path = raw.split("/wiki/")[1].split("#")[0];
+        return decodeURIComponent(path).replace(/_/g, " ");
+    }
+    return raw;
+}
+
+function renderTags() {
+    const container = document.getElementById("topicTags");
+    container.innerHTML = "";
+    seedTopics.forEach((t, i) => {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = t;
+        const x = document.createElement("span");
+        x.className = "tag-remove";
+        x.textContent = "×";
+        x.onclick = () => { seedTopics.splice(i, 1); renderTags(); };
+        span.appendChild(x);
+        container.appendChild(span);
+    });
+}
+
+function addTopic() {
+    const input = document.getElementById("topicInput");
+    const title = parseWikipediaTitle(input.value);
+    if (title && !seedTopics.includes(title)) {
+        seedTopics.push(title);
+        renderTags();
+    }
+    input.value = "";
+    input.focus();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    renderTags();
+    document.getElementById("topicInput").addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); addTopic(); }
+    });
+});
+
 function setStatus(msg) {
     document.getElementById("status").textContent = msg;
 }
@@ -279,10 +371,7 @@ function setLoading(on) {
 }
 
 async function runCrawl() {
-    const topics = document.getElementById("topics").value
-        .split("\n").map(t => t.trim()).filter(Boolean);
-
-    if (!topics.length) { setStatus("Enter at least one topic."); return; }
+    if (!seedTopics.length) { setStatus("Add at least one topic."); return; }
 
     const depth        = parseInt(document.getElementById("depth").value);
     const linksPerPage = parseInt(document.getElementById("links").value);
@@ -296,7 +385,7 @@ async function runCrawl() {
         const resp = await fetch("/crawl", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topics, depth, links_per_page: linksPerPage, top_n: topN })
+            body: JSON.stringify({ topics: seedTopics, depth, links_per_page: linksPerPage, top_n: topN })
         });
         const data = await resp.json();
 
@@ -317,20 +406,20 @@ async function runCrawl() {
 function nodeRadius(d) {
     if (d.type === "seed") return 18;
     const s = Math.min(d.score, 1.0);
-    if (d.type === "hub")  return 8  + s * 10;
-    return 3 + s * 7;
+    if (d.type === "hub")  return 9  + s * 9;
+    return 5 + s * 5;
 }
 
 function nodeColor(d) {
-    if (d.type === "seed") return "#f0f0f0";
-    if (d.type === "hub")  return "#888888";
-    return "#383838";
+    if (d.type === "seed") return "#b0b0b0";
+    if (d.type === "hub")  return "#767676";
+    return "#585858";
 }
 
 function labelColor(d) {
-    if (d.type === "seed") return "#ffffff";
+    if (d.type === "seed") return "#e0e0e0";
     if (d.type === "hub")  return "#aaaaaa";
-    return "#555555";
+    return "#888888";
 }
 
 function renderGraph(data) {
@@ -370,9 +459,9 @@ function renderGraph(data) {
 
     const link = g.append("g").selectAll("line")
         .data(links).join("line")
-        .attr("stroke",         d => d.bidirectional ? "#595959" : "#252525")
-        .attr("stroke-width",   d => d.bidirectional ? 1.5 : 0.8)
-        .attr("stroke-opacity", d => d.bidirectional ? 0.9 : 0.6);
+        .attr("stroke",         d => d.bidirectional ? "#707070" : "#3a3a3a")
+        .attr("stroke-width",   d => d.bidirectional ? 2.5 : 1.5)
+        .attr("stroke-opacity", d => d.bidirectional ? 1.0 : 0.7);
 
     const node = g.append("g").selectAll("g")
         .data(nodes).join("g")
@@ -381,9 +470,9 @@ function renderGraph(data) {
     node.append("circle")
         .attr("r",            nodeRadius)
         .attr("fill",         nodeColor)
-        .attr("fill-opacity", d => d.type === "node" ? 0.7 : 0.9)
-        .attr("stroke",       d => d.type === "seed" ? "#ffffff" : "none")
-        .attr("stroke-width", 1);
+        .attr("fill-opacity", 1.0)
+        .attr("stroke",       d => d.type === "seed" ? "#d0d0d0" : "none")
+        .attr("stroke-width", 1.5);
 
     // Labels: seeds and hubs always; nodes only if score is reasonably high
     node.filter(d => d.type === "seed" || d.type === "hub" || d.score >= 0.15)

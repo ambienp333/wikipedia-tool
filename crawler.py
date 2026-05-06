@@ -1,4 +1,5 @@
 import math
+import urllib.parse
 import requests
 import time
 import json
@@ -9,6 +10,15 @@ from datetime import datetime, timedelta
 BASE_URL = "https://en.wikipedia.org"  # swap to http://localhost:8080 for Kiwix
 API_URL = f"{BASE_URL}/w/api.php"
 HEADERS = {"User-Agent": "wikipedia-tool/1.0 (educational project)"}
+
+
+def normalize_topic(topic):
+    """Accept a Wikipedia URL or a plain article title."""
+    topic = topic.strip()
+    if "wikipedia.org/wiki/" in topic:
+        path = topic.split("/wiki/", 1)[1].split("#")[0]
+        return urllib.parse.unquote(path).replace("_", " ")
+    return topic
 
 
 def get_links(page_title, limit=10):
@@ -122,6 +132,7 @@ def crawl(seed_topics, depth=3, links_per_page=10):
     all_edges = set()
 
     for i, seed in enumerate(seed_topics):
+        seed = normalize_topic(seed)
         print(f"\n[Seed {i + 1}/{len(seed_topics)}] {seed}")
         visited, edges = _crawl_seed(seed, link_cache, depth, links_per_page)
         all_edges |= edges
@@ -132,7 +143,7 @@ def crawl(seed_topics, depth=3, links_per_page=10):
 
 
 def build_graph(seed_topics, seed_coverage, all_edges, top_n=120):
-    seed_set = {t.strip() for t in seed_topics}
+    seed_set = {normalize_topic(t) for t in seed_topics}
     total_seeds = len(seed_topics)
 
     # Bidirectional edge detection: (A→B) is bidirectional if (B→A) also exists
