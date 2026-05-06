@@ -1,4 +1,5 @@
 import math
+import re
 import urllib.parse
 import requests
 import time
@@ -12,6 +13,40 @@ API_URL = f"{BASE_URL}/w/api.php"
 HEADERS = {"User-Agent": "wikipedia-tool/1.0 (educational project)"}
 
 
+EXCLUSION_PRESETS = {
+    "people": {
+        "label": "People & Biographies",
+        "patterns": [
+            r"\d{4} births", r"\d{4} deaths", r"^living people$",
+            r"^people from ", r"^people by ", r"alumni of ", r"graduates of ",
+        ],
+    },
+    "history": {
+        "label": "History",
+        "patterns": [
+            r"^history of ", r"historical ", r"^ancient ",
+            r"^medieval ", r"\d+th.century", r"^wars ", r" wars$",
+            r"^battles ", r"military history",
+        ],
+    },
+    "geography": {
+        "label": "Geography & Places",
+        "patterns": [
+            r"^cities in ", r"^towns in ", r"^villages in ",
+            r"populated places", r"^geography of ",
+            r"^rivers of ", r"^mountains of ", r"^islands of ",
+        ],
+    },
+    "media": {
+        "label": "Films, Books & Media",
+        "patterns": [
+            r"\bfilms\b", r"\balbums\b", r"\bnovels\b",
+            r"\bsongs\b", r"^television ", r"video games",
+        ],
+    },
+}
+
+
 def normalize_topic(topic):
     """Accept a Wikipedia URL or a plain article title."""
     topic = topic.strip()
@@ -21,11 +56,12 @@ def normalize_topic(topic):
     return topic
 
 
-def get_links(page_title, limit=10):
+def _fetch_page_data(page_title, limit=10):
+    """Fetch links from paragraph text and category list in one API call."""
     params = {
         "action": "parse",
         "page": page_title,
-        "prop": "text",
+        "prop": "text|categories",
         "format": "json",
         "redirects": 1,
     }
@@ -34,38 +70,61 @@ def get_links(page_title, limit=10):
         data = resp.json()
     except Exception as e:
         print(f"    Error fetching {page_title}: {e}")
-        return []
+        return {"links": [], "categories": []}
 
     if "error" in data:
-        return []
+        return {"links": [], "categories": []}
 
-    html = data["parse"]["text"]["*"]
+    parse = data["parse"]
+
+    # Extract paragraph links
+    html = parse["text"]["*"]
     soup = BeautifulSoup(html, "html.parser")
     content = soup.find("div", class_="mw-parser-output")
-    if not content:
-        return []
-
     links = []
-    seen = set()
+    if content:
+        seen = set()
+        for p in content.find_all("p"):
+            for a in p.find_all("a", href=True):
+                href = a.get("href", "")
+                if not href.startswith("/wiki/"):
+                    continue
+                title = href[6:].split("#")[0]
+                if not title or ":" in title:
+                    continue
+                if "new" in a.get("class", []):
+                    continue
+                title = title.replace("_", " ")
+                if title not in seen:
+                    seen.add(title)
+                    links.append(title)
+                    if len(links) >= limit:
+                        break
+            if len(links) >= limit:
+                break
 
-    for p in content.find_all("p"):
-        for a in p.find_all("a", href=True):
-            href = a.get("href", "")
-            if not href.startswith("/wiki/"):
-                continue
-            title = href[6:].split("#")[0]
-            if not title or ":" in title:
-                continue
-            if "new" in a.get("class", []):
-                continue
-            title = title.replace("_", " ")
-            if title not in seen:
-                seen.add(title)
-                links.append(title)
-                if len(links) >= limit:
-                    return links
+    # Extract categories (hidden categories excluded via sortkey check)
+    categories = [
+        cat["*"].replace("_", " ")
+        for cat in parse.get("categories", [])
+        if not cat.get("hidden")
+    ]
 
-    return links
+    return {"links": links, "categories": categories}
+
+
+def _is_excluded(categories, active_exclusions):
+    """Return True if any of the page's categories match an active exclusion preset."""
+    cats_lower = [c.lower() for c in categories]
+    for preset_key in active_exclusions:
+        preset = EXCLUSION_PRESETS.get(preset_key)
+        if not preset:
+            continue
+        for cat in cats_lower:
+            for pattern in preset["patterns"]:
+                if re.search(pattern, cat):
+                    return True
+    return False
 
 
 def _crawl_seed(seed, link_cache, depth, links_per_page):
@@ -81,10 +140,10 @@ def _crawl_seed(seed, link_cache, depth, links_per_page):
 
         if page not in link_cache:
             print(f"  [{d}] {page}")
-            link_cache[page] = get_links(page, limit=links_per_page)
+            link_cache[page] = _fetch_page_data(page, limit=links_per_page)
             time.sleep(0.1)
 
-        for link in link_cache[page]:
+        for link in link_cache[page]["links"]:
             edges.add((page, link))
             if link not in visited:
                 visited.add(link)
@@ -139,10 +198,11 @@ def crawl(seed_topics, depth=3, links_per_page=10):
         for node in visited:
             seed_coverage[node] += 1
 
-    return dict(seed_coverage), all_edges
+    cat_cache = {page: data["categories"] for page, data in link_cache.items()}
+    return dict(seed_coverage), all_edges, cat_cache
 
 
-def build_graph(seed_topics, seed_coverage, all_edges, top_n=120):
+def build_graph(seed_topics, seed_coverage, all_edges, cat_cache=None, exclusions=None, top_n=120):
     seed_set = {normalize_topic(t) for t in seed_topics}
     total_seeds = len(seed_topics)
 
@@ -182,8 +242,15 @@ def build_graph(seed_topics, seed_coverage, all_edges, top_n=120):
 
         scores[node] = (0.5 * coverage_score) + (0.3 * pv_score) + (0.2 * bidir_ratio)
 
+    active_exclusions = exclusions or []
+    cat_cache = cat_cache or {}
+
     non_seeds = sorted(
-        [(n, s) for n, s in scores.items() if n not in seed_set],
+        [
+            (n, s) for n, s in scores.items()
+            if n not in seed_set
+            and not _is_excluded(cat_cache.get(n, []), active_exclusions)
+        ],
         key=lambda x: x[1],
         reverse=True,
     )
@@ -236,8 +303,8 @@ if __name__ == "__main__":
     seeds = sys.argv[1:] if len(sys.argv) > 1 else ["Genetics", "Epigenetics", "Molecular biology"]
     print(f"Seeds: {seeds}\nCrawling...\n")
 
-    coverage, edges = crawl(seeds, depth=3, links_per_page=10)
-    graph = build_graph(seeds, coverage, edges, top_n=120)
+    coverage, edges, cats = crawl(seeds, depth=3, links_per_page=10)
+    graph = build_graph(seeds, coverage, edges, cat_cache=cats, top_n=120)
 
     with open("graph.json", "w") as f:
         json.dump(graph, f)

@@ -38,6 +38,7 @@ def run_crawl():
     depth         = max(1, min(int(data.get("depth", 3)), 4))
     links_per_page = max(5, min(int(data.get("links_per_page", 10)), 20))
     top_n         = max(20, min(int(data.get("top_n", 120)), 300))
+    exclusions    = [e for e in data.get("exclusions", []) if isinstance(e, str)]
 
     if not topics:
         return jsonify({"error": "No topics provided."}), 400
@@ -46,8 +47,8 @@ def run_crawl():
         _crawl_running = True
 
     try:
-        coverage, edges = crawl(topics, depth=depth, links_per_page=links_per_page)
-        graph_data = build_graph(topics, coverage, edges, top_n=top_n)
+        coverage, edges, cats = crawl(topics, depth=depth, links_per_page=links_per_page)
+        graph_data = build_graph(topics, coverage, edges, cat_cache=cats, exclusions=exclusions, top_n=top_n)
         with open(GRAPH_FILE, "w") as f:
             json.dump(graph_data, f)
         return jsonify(graph_data)

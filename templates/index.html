@@ -150,6 +150,32 @@
 
         .tag-remove:hover { color: #aaaaaa; }
 
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 11px;
+            color: #909090;
+            cursor: pointer;
+            text-transform: none;
+            letter-spacing: 0;
+            margin-bottom: 0;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 12px;
+            height: 12px;
+            accent-color: #707070;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
         button {
             width: 100%;
             margin-top: 4px;
@@ -311,6 +337,24 @@
         <input type="number" id="topN" value="120" min="20" max="300">
     </div>
 
+    <div class="field">
+        <label>Exclude Categories</label>
+        <div class="checkbox-group">
+            <label class="checkbox-item">
+                <input type="checkbox" value="people"> People &amp; Biographies
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" value="history"> History
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" value="geography"> Geography &amp; Places
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" value="media"> Films, Books &amp; Media
+            </label>
+        </div>
+    </div>
+
     <button id="crawlBtn" onclick="runCrawl()">Build Graph</button>
     <div id="status"></div>
 
@@ -424,6 +468,7 @@ async function runCrawl() {
     const depth        = parseInt(document.getElementById("depth").value);
     const linksPerPage = parseInt(document.getElementById("links").value);
     const topN         = parseInt(document.getElementById("topN").value);
+    const exclusions   = [...document.querySelectorAll(".checkbox-group input:checked")].map(el => el.value);
 
     setLoading(true);
     setStatus("Crawling…");
@@ -433,7 +478,7 @@ async function runCrawl() {
         const resp = await fetch("/crawl", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topics: seedTopics, depth, links_per_page: linksPerPage, top_n: topN })
+            body: JSON.stringify({ topics: seedTopics, depth, links_per_page: linksPerPage, top_n: topN, exclusions })
         });
         const data = await resp.json();
 
