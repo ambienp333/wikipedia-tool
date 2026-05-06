@@ -338,6 +338,15 @@
     </div>
 
     <div class="field">
+        <label>Options</label>
+        <div class="checkbox-group">
+            <label class="checkbox-item">
+                <input type="checkbox" id="seeAlso"> Include "See Also" links
+            </label>
+        </div>
+    </div>
+
+    <div class="field">
         <label>Exclude Categories</label>
         <div class="checkbox-group">
             <label class="checkbox-item">
@@ -379,8 +388,12 @@
             Bidirectional
         </div>
         <div class="legend-item">
-            <div class="legend-line" style="background:#2a2a2a;"></div>
+            <div class="legend-line" style="background:#3a3a3a;"></div>
             Unidirectional
+        </div>
+        <div class="legend-item">
+            <div class="legend-line" style="background:#383838; background: repeating-linear-gradient(90deg,#555 0,#555 5px,transparent 5px,transparent 9px);"></div>
+            Inherited (via excluded)
         </div>
 
         <div class="legend-score">
@@ -468,7 +481,8 @@ async function runCrawl() {
     const depth        = parseInt(document.getElementById("depth").value);
     const linksPerPage = parseInt(document.getElementById("links").value);
     const topN         = parseInt(document.getElementById("topN").value);
-    const exclusions   = [...document.querySelectorAll(".checkbox-group input:checked")].map(el => el.value);
+    const exclusions      = [...document.querySelectorAll(".checkbox-group input:checked")].map(el => el.value).filter(Boolean);
+    const includeSeeAlso  = document.getElementById("seeAlso").checked;
 
     setLoading(true);
     setStatus("Crawling…");
@@ -478,7 +492,7 @@ async function runCrawl() {
         const resp = await fetch("/crawl", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topics: seedTopics, depth, links_per_page: linksPerPage, top_n: topN, exclusions })
+            body: JSON.stringify({ topics: seedTopics, depth, links_per_page: linksPerPage, top_n: topN, exclusions, include_see_also: includeSeeAlso })
         });
         const data = await resp.json();
 
@@ -552,9 +566,10 @@ function renderGraph(data) {
 
     const link = g.append("g").selectAll("line")
         .data(links).join("line")
-        .attr("stroke",         d => d.bidirectional ? "#707070" : "#3a3a3a")
-        .attr("stroke-width",   d => d.bidirectional ? 2.5 : 1.5)
-        .attr("stroke-opacity", d => d.bidirectional ? 1.0 : 0.7);
+        .attr("stroke",            d => d.inherited ? "#383838" : d.bidirectional ? "#707070" : "#3a3a3a")
+        .attr("stroke-width",      d => d.inherited ? 1.0 : d.bidirectional ? 2.5 : 1.5)
+        .attr("stroke-opacity",    d => d.inherited ? 0.5 : d.bidirectional ? 1.0 : 0.7)
+        .attr("stroke-dasharray",  d => d.inherited ? "5,4" : "none");
 
     const node = g.append("g").selectAll("g")
         .data(nodes).join("g")

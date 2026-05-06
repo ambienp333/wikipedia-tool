@@ -103,14 +103,50 @@ def _fetch_page_data(page_title, limit=10):
             if len(links) >= limit:
                 break
 
-    # Extract categories (hidden categories excluded via sortkey check)
+    # Extract See Also links
+    see_also_links = []
+    if content:
+        see_also_head = None
+        for tag in content.find_all(["h2", "h3", "div"]):
+            if tag.name in ["h2", "h3"]:
+                if tag.get_text(strip=True).lower() == "see also":
+                    see_also_head = tag
+                    break
+            elif "mw-heading" in tag.get("class", []):
+                inner = tag.find(["h2", "h3"])
+                if inner and inner.get_text(strip=True).lower() == "see also":
+                    see_also_head = tag
+                    break
+
+        if see_also_head:
+            seen_sa = set(links)
+            for sibling in see_also_head.find_next_siblings():
+                if sibling.name in ["h2", "h3"]:
+                    break
+                if "mw-heading" in sibling.get("class", []):
+                    break
+                for a in sibling.find_all("a", href=True):
+                    href = a.get("href", "")
+                    if not href.startswith("/wiki/"):
+                        continue
+                    title = href[6:].split("#")[0]
+                    if not title or ":" in title:
+                        continue
+                    if "new" in a.get("class", []):
+                        continue
+                    title = title.replace("_", " ")
+                    if title not in seen_sa:
+                        seen_sa.add(title)
+                        see_also_links.append(title)
+
+    # Extract categories (skip hidden ones)
     categories = [
         cat["*"].replace("_", " ")
         for cat in parse.get("categories", [])
         if not cat.get("hidden")
     ]
 
-    return {"links": links, "categories": categories}
+    return {"links": links, "see_also": see_also_links, "categories": categories}
 
 
 def _is_excluded(categories, active_exclusions):
@@ -127,7 +163,7 @@ def _is_excluded(categories, active_exclusions):
     return False
 
 
-def _crawl_seed(seed, link_cache, depth, links_per_page):
+def _crawl_seed(seed, link_cache, depth, links_per_page, include_see_also=False):
     """BFS from a single seed. Mutates link_cache in place so results are reused across seeds."""
     visited = {seed}
     edges = set()
@@ -143,7 +179,12 @@ def _crawl_seed(seed, link_cache, depth, links_per_page):
             link_cache[page] = _fetch_page_data(page, limit=links_per_page)
             time.sleep(0.1)
 
-        for link in link_cache[page]["links"]:
+        page_links = link_cache[page]["links"]
+        if include_see_also:
+            seen = set(page_links)
+            page_links = page_links + [l for l in link_cache[page]["see_also"] if l not in seen]
+
+        for link in page_links:
             edges.add((page, link))
             if link not in visited:
                 visited.add(link)
@@ -180,10 +221,10 @@ def fetch_pageviews(titles):
     return pageviews
 
 
-def crawl(seed_topics, depth=3, links_per_page=10):
+def crawl(seed_topics, depth=3, links_per_page=10, include_see_also=False):
     """
     Run an independent BFS from each seed, sharing a link cache to avoid re-fetching pages.
-    Returns (seed_coverage, all_edges).
+    Returns (seed_coverage, all_edges, cat_cache).
     seed_coverage[node] = number of seeds whose BFS reached that node.
     """
     link_cache = {}
@@ -193,7 +234,7 @@ def crawl(seed_topics, depth=3, links_per_page=10):
     for i, seed in enumerate(seed_topics):
         seed = normalize_topic(seed)
         print(f"\n[Seed {i + 1}/{len(seed_topics)}] {seed}")
-        visited, edges = _crawl_seed(seed, link_cache, depth, links_per_page)
+        visited, edges = _crawl_seed(seed, link_cache, depth, links_per_page, include_see_also)
         all_edges |= edges
         for node in visited:
             seed_coverage[node] += 1
@@ -245,16 +286,38 @@ def build_graph(seed_topics, seed_coverage, all_edges, cat_cache=None, exclusion
     active_exclusions = exclusions or []
     cat_cache = cat_cache or {}
 
+    # Separate excluded nodes from nodes that simply don't score high enough
+    excluded = {
+        n for n in scores
+        if n not in seed_set
+        and active_exclusions
+        and _is_excluded(cat_cache.get(n, []), active_exclusions)
+    }
+
     non_seeds = sorted(
-        [
-            (n, s) for n, s in scores.items()
-            if n not in seed_set
-            and not _is_excluded(cat_cache.get(n, []), active_exclusions)
-        ],
+        [(n, s) for n, s in scores.items() if n not in seed_set and n not in excluded],
         key=lambda x: x[1],
         reverse=True,
     )
     kept = seed_set | {n for n, _ in non_seeds[:top_n]}
+
+    # Edge inheritance: when a node is excluded, bridge its kept neighbours directly
+    inherited = set()
+    if excluded:
+        exc_out = defaultdict(set)
+        exc_in  = defaultdict(set)
+        for (src, tgt) in all_edges:
+            if src in excluded:
+                exc_out[src].add(tgt)
+            if tgt in excluded:
+                exc_in[tgt].add(src)
+        for exc in excluded:
+            for src in exc_in[exc]:
+                if src not in kept:
+                    continue
+                for tgt in exc_out[exc]:
+                    if tgt in kept and src != tgt:
+                        inherited.add((src, tgt))
 
     kept_scores = sorted(
         [scores[n] for n in kept if n not in seed_set], reverse=True
@@ -278,7 +341,7 @@ def build_graph(seed_topics, seed_coverage, all_edges, cat_cache=None, exclusion
             "pageviews": pageviews.get(node, 0),
         })
 
-    # Deduplicate: treat (A→B) and (B→A) as one edge, flagged as bidirectional
+    # Direct edges (deduplicated, bidirectional flagged)
     seen_pairs = set()
     links = []
     for (src, tgt) in all_edges:
@@ -292,6 +355,20 @@ def build_graph(seed_topics, seed_coverage, all_edges, cat_cache=None, exclusion
             "source": src,
             "target": tgt,
             "bidirectional": (src, tgt) in bidir_edges,
+            "inherited": False,
+        })
+
+    # Inherited edges (from excluded node bridge-removal)
+    for (src, tgt) in inherited:
+        pair = frozenset([src, tgt])
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        links.append({
+            "source": src,
+            "target": tgt,
+            "bidirectional": False,
+            "inherited": True,
         })
 
     return {"nodes": nodes, "links": links}
