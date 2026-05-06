@@ -27,6 +27,46 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            transition: width 0.2s ease, padding 0.2s ease, opacity 0.15s ease;
+        }
+
+        #sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            opacity: 0;
+            overflow: hidden;
+            border-right: none;
+        }
+
+        #toggle-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 100;
+            background: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 3px;
+            color: #909090;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: background 0.15s;
+        }
+
+        #toggle-btn:hover { background: #2a2a2a; color: #c0c0c0; }
+
+        #toggle-btn span {
+            display: block;
+            width: 14px;
+            height: 1.5px;
+            background: currentColor;
+            border-radius: 1px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
         }
 
         h1 {
@@ -236,6 +276,10 @@
 </head>
 <body>
 
+<button id="toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <span></span><span></span><span></span>
+</button>
+
 <div id="sidebar">
     <h1>Wikipedia Graph</h1>
 
@@ -352,6 +396,10 @@ function addTopic() {
     }
     input.value = "";
     input.focus();
+}
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("collapsed");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
