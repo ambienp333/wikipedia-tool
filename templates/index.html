@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia Topic Graph</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        #sidebar {
+            width: 260px;
+            flex-shrink: 0;
+            height: 100vh;
+            background: #16213e;
+            padding: 20px 16px;
+            border-right: 1px solid #0f3460;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        h1 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4A90E2;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        .field { margin-bottom: 12px; }
+
+        label {
+            display: block;
+            font-size: 10px;
+            color: #6a7888;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 5px;
+        }
+
+        textarea, input[type="number"], select {
+            width: 100%;
+            background: #0d1b2e;
+            border: 1px solid #1e3a5f;
+            color: #d0d8e8;
+            padding: 7px 9px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        textarea:focus, input:focus, select:focus {
+            border-color: #4A90E2;
+        }
+
+        textarea { height: 110px; resize: vertical; line-height: 1.5; }
+
+        button {
+            width: 100%;
+            margin-top: 4px;
+            padding: 9px;
+            background: #4A90E2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        button:hover:not(:disabled) { background: #3a7bd5; }
+        button:disabled { background: #1e3a5f; color: #4a6a8a; cursor: not-allowed; }
+
+        #status {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6a8aaa;
+            min-height: 16px;
+            text-align: center;
+        }
+
+        #legend {
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .legend-label {
+            font-size: 10px;
+            color: #6a7888;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+            font-size: 12px;
+            color: #9aaabb;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        #graph {
+            flex: 1;
+            height: 100vh;
+            position: relative;
+        }
+
+        svg { width: 100%; height: 100%; }
+
+        .link {
+            stroke: #1e3a5a;
+            stroke-opacity: 0.6;
+            stroke-width: 1;
+        }
+
+        .link-seed {
+            stroke: #2a5a8a;
+            stroke-opacity: 0.7;
+            stroke-width: 1.5;
+        }
+
+        .node text {
+            pointer-events: none;
+            user-select: none;
+        }
+
+        #overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 15, 30, 0.7);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        #overlay.visible { display: flex; }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #0f3460;
+            border-top-color: #4A90E2;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .overlay-text { font-size: 13px; color: #9aaabb; }
+        .overlay-sub  { font-size: 11px; color: #5a7a9a; }
+
+        #empty {
+            display: none;
+            position: absolute;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            color: #3a5a7a;
+            font-size: 13px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #empty.visible { display: flex; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h1>Wikipedia Graph</h1>
+
+    <div class="field">
+        <label>Seed Topics (one per line)</label>
+        <textarea id="topics" placeholder="Genetics&#10;Epigenetics&#10;Molecular biology">Genetics
+Epigenetics
+Molecular biology</textarea>
+    </div>
+
+    <div class="field">
+        <label>Crawl Depth</label>
+        <select id="depth">
+            <option value="2">2 — faster</option>
+            <option value="3" selected>3 — recommended</option>
+            <option value="4">4 — slow</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Links per Page</label>
+        <input type="number" id="links" value="10" min="5" max="20">
+    </div>
+
+    <div class="field">
+        <label>Min Frequency (display filter)</label>
+        <input type="number" id="minFreq" value="2" min="1" max="20">
+    </div>
+
+    <button id="crawlBtn" onclick="runCrawl()">Build Graph</button>
+    <div id="status"></div>
+
+    <div id="legend">
+        <div class="legend-label">Node types</div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background:#4A90E2"></div>
+            Seed topic
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background:#E8834A"></div>
+            Hub (high frequency)
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background:#5a7a8a"></div>
+            Node
+        </div>
+    </div>
+</div>
+
+<div id="graph">
+    <div id="overlay">
+        <div class="spinner"></div>
+        <div class="overlay-text">Crawling Wikipedia…</div>
+        <div class="overlay-sub">This may take 30–90 seconds</div>
+    </div>
+    <div id="empty" class="visible">
+        <div>No graph loaded</div>
+        <div style="font-size:11px;color:#2a4a6a">Enter seed topics and click Build Graph</div>
+    </div>
+</div>
+
+<script>
+function setStatus(msg) {
+    document.getElementById("status").textContent = msg;
+}
+
+function setLoading(on) {
+    document.getElementById("overlay").classList.toggle("visible", on);
+    document.getElementById("crawlBtn").disabled = on;
+}
+
+async function runCrawl() {
+    const topics = document.getElementById("topics").value
+        .split("\n").map(t => t.trim()).filter(Boolean);
+
+    if (!topics.length) { setStatus("Enter at least one topic."); return; }
+
+    const depth        = parseInt(document.getElementById("depth").value);
+    const linksPerPage = parseInt(document.getElementById("links").value);
+    const minFreq      = parseInt(document.getElementById("minFreq").value);
+
+    setLoading(true);
+    setStatus("Crawling…");
+    document.getElementById("empty").classList.remove("visible");
+
+    try {
+        const resp = await fetch("/crawl", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topics, depth, links_per_page: linksPerPage, min_frequency: minFreq })
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            setStatus("Error: " + data.error);
+            document.getElementById("empty").classList.add("visible");
+        } else {
+            setStatus(`${data.nodes.length} nodes · ${data.links.length} edges`);
+            renderGraph(data);
+        }
+    } catch (e) {
+        setStatus("Error: " + e.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function nodeRadius(d) {
+    if (d.type === "seed") return 18;
+    if (d.type === "hub")  return 8 + Math.min(d.frequency, 12);
+    return 4 + Math.min(d.frequency * 1.2, 7);
+}
+
+function nodeColor(d) {
+    if (d.type === "seed") return "#4A90E2";
+    if (d.type === "hub")  return "#E8834A";
+    return "#3d6070";
+}
+
+function renderGraph(data) {
+    d3.select("#graph svg").remove();
+    document.getElementById("empty").classList.remove("visible");
+
+    const container = document.getElementById("graph");
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+
+    const svg = d3.select("#graph").append("svg");
+    const g   = svg.append("g");
+
+    svg.call(
+        d3.zoom().scaleExtent([0.1, 6])
+          .on("zoom", e => g.attr("transform", e.transform))
+    );
+
+    const nodes = data.nodes.map(d => ({ ...d }));
+    const links = data.links.map(d => ({ ...d }));
+
+    const sim = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+            const s = typeof d.source === "object" ? d.source.type : "node";
+            const t = typeof d.target === "object" ? d.target.type : "node";
+            if (s === "seed" || t === "seed") return 160;
+            if (s === "hub"  || t === "hub")  return 110;
+            return 70;
+        }))
+        .force("charge", d3.forceManyBody().strength(d => {
+            if (d.type === "seed") return -900;
+            if (d.type === "hub")  return -400;
+            return -120;
+        }))
+        .force("center", d3.forceCenter(W / 2, H / 2))
+        .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 6));
+
+    const link = g.append("g").selectAll("line")
+        .data(links).join("line")
+        .attr("class", d => {
+            const s = typeof d.source === "object" ? d.source.type : "node";
+            return s === "seed" ? "link link-seed" : "link";
+        });
+
+    const node = g.append("g").selectAll("g")
+        .data(nodes).join("g")
+        .call(drag(sim));
+
+    node.append("circle")
+        .attr("r", nodeRadius)
+        .attr("fill", nodeColor)
+        .attr("fill-opacity", 0.88)
+        .attr("stroke", d => d3.color(nodeColor(d)).brighter(0.6))
+        .attr("stroke-width", 1.2);
+
+    node.filter(d => d.type === "seed" || d.type === "hub" || d.frequency >= 3)
+        .append("text")
+        .attr("dy", d => nodeRadius(d) + 11)
+        .attr("text-anchor", "middle")
+        .attr("font-size", d => d.type === "seed" ? 12 : d.type === "hub" ? 10 : 9)
+        .attr("fill", d => d.type === "seed" ? "#a8c8f8" : d.type === "hub" ? "#f0c090" : "#7a9aaa")
+        .text(d => d.id);
+
+    sim.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+}
+
+function drag(sim) {
+    return d3.drag()
+        .on("start", (e) => {
+            if (!e.active) sim.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+        })
+        .on("drag", (e) => {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+        })
+        .on("end", (e) => {
+            if (!e.active) sim.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+        });
+}
+
+// Load cached graph on page load
+fetch("/graph")
+    .then(r => r.json())
+    .then(data => {
+        if (!data.error) {
+            setStatus(`${data.nodes.length} nodes · ${data.links.length} edges`);
+            renderGraph(data);
+        }
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>
